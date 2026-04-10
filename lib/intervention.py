@@ -71,7 +71,7 @@ def _nnsight_forward(input_ids, zero_at_layer: int | None = None):
 
         logits = _model.lm_head.output[0, -1, :].save()
 
-    return logits.value.float().cpu()
+    return logits.float().cpu()
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def get_embedding_at_last_pos(text: str):
     if _use_nnsight:
         with _model.trace(input_ids):
             emb = _model.model.embed_tokens.output[0, -1, :].save()
-        return emb.value.float().cpu()
+        return emb.float().cpu()
     else:
         return _hook_capture_embedding(input_ids).float().cpu()
 
