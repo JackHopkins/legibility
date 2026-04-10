@@ -24,5 +24,5 @@ DATASET_NAME = "openai/gsm8k"
 DATASET_CONFIG = "main"
 DATASET_SPLIT = "train"
 
-# Development subset size
-DEV_SIZE = 500
+# Subset size for experiments
+SUBSET_SIZE = 128
