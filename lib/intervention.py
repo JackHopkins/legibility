@@ -91,7 +91,6 @@ def generate_answer(text: str, zero_at_layer: int | None = None,
         dict with keys:
             generated_text: str - the generated continuation
             predicted_answer: int or None - extracted numeric answer
-            first_token_logits: Tensor - logits at the first generated position
     """
     input_ids = _tokenize(text)
 
@@ -120,20 +119,9 @@ def generate_answer(text: str, zero_at_layer: int | None = None,
     match = re.search(r"-?\d[\d,]*", generated_text)
     predicted_answer = int(match.group().replace(",", "")) if match else None
 
-    # Also get logits at the first generated position for analysis
-    # (single forward pass on the prefill, no generation)
-    if zero_at_layer is not None:
-        with _hook_zero_residual_once(zero_at_layer, input_ids):
-            outputs = _model(input_ids)
-    else:
-        outputs = _model(input_ids)
-
-    first_token_logits = outputs.logits[0, -1, :].float().cpu()
-
     return {
         "generated_text": generated_text,
         "predicted_answer": predicted_answer,
-        "first_token_logits": first_token_logits,
     }
 
 
