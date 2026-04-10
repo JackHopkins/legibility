@@ -55,22 +55,33 @@ def extract_predicted_answer(text: str) -> int | None:
     return None
 
 
-def build_prefill_string(question: str, cot_text: str) -> str:
+def build_prefill_string(question: str, full_response: str) -> str:
     """Construct the prefill string using Qwen3 chat template.
 
-    The model's next token after this string should be the numeric answer.
+    Includes the full model response (think tags + answer text) up to
+    'The answer is: ', so the model's next token should be the number.
 
-    Format:
-        <|im_start|>user
-        {question}<|im_end|>
-        <|im_start|>assistant
-        {cot_text} The answer is:
+    If 'The answer is:' is not found in the response, falls back to
+    appending it after the full response.
     """
+    # Find the last occurrence of "The answer is:" and truncate after it
+    # This positions the model to predict the numeric answer as the next token
+    pattern = r"[Tt]he answer is:?\s*"
+    matches = list(re.finditer(pattern, full_response))
+
+    if matches:
+        last_match = matches[-1]
+        # Include everything up to and including "The answer is: "
+        truncated = full_response[:last_match.end()]
+    else:
+        # Fallback: append "The answer is: " after the full response
+        truncated = full_response.rstrip() + "\nThe answer is: "
+
     return (
         f"<|im_start|>user\n"
         f"{question}<|im_end|>\n"
         f"<|im_start|>assistant\n"
-        f"{cot_text} The answer is:"
+        f"{truncated}"
     )
 
 
