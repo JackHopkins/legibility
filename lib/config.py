@@ -12,7 +12,7 @@ MODEL_NAME = "Qwen/Qwen3-4B"
 CROSS_MODEL_NAME = "Qwen/Qwen3-8B"
 NUM_LAYERS = 36
 HIDDEN_SIZE = 2560
-ZERO_AT_LAYERS = [0, 9, 18, 27, 35]
+ZERO_AT_LAYERS = list(range(NUM_LAYERS))  # all 36 layers
 
 CONDITIONS = ["self_prefill"] + [f"zeroed_layer_{k}" for k in ZERO_AT_LAYERS]
 
@@ -25,4 +25,4 @@ DATASET_CONFIG = "main"
 DATASET_SPLIT = "train"
 
 # Subset size for experiments
-SUBSET_SIZE = 128
+SUBSET_SIZE = 256
