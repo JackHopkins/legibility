@@ -67,7 +67,8 @@ def _nnsight_forward(input_ids, zero_at_layer: int | None = None):
             # Grab raw embedding at last position
             embedding = _model.model.embed_tokens.output[0, -1, :].clone().save()
             # Replace residual entering target layer at last position
-            _model.model.layers[zero_at_layer].input[0][0][-1, :] = embedding
+            # input[0] is hidden_states with shape [batch, seq, hidden]
+            _model.model.layers[zero_at_layer].input[0][0, -1, :] = embedding
 
         logits = _model.lm_head.output[0, -1, :].save()
 
