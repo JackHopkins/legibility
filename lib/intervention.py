@@ -21,7 +21,7 @@ def load_model(model_name: str, use_nnsight: bool = True):
     if use_nnsight:
         try:
             from nnsight import LanguageModel
-            _model = LanguageModel(model_name, device_map="auto", torch_dtype=torch.bfloat16)
+            _model = LanguageModel(model_name, device_map="auto", dispatch=True, dtype=torch.bfloat16)
             _tokenizer = _model.tokenizer
             print(f"Loaded {model_name} with nnsight")
             return _model, _tokenizer
