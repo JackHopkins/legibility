@@ -2,7 +2,7 @@
 
 import re
 from datasets import load_dataset
-from lib.config import DATASET_NAME, DATASET_SPLIT
+from lib.config import DATASET_NAME, DATASET_CONFIG, DATASET_SPLIT
 
 
 def load_gsm8k(split: str = DATASET_SPLIT):
@@ -11,7 +11,7 @@ def load_gsm8k(split: str = DATASET_SPLIT):
     Returns a list of dicts with keys:
         problem_id, question, answer_text, gold_answer
     """
-    ds = load_dataset(DATASET_NAME, split)
+    ds = load_dataset(DATASET_NAME, DATASET_CONFIG, split=split)
     examples = []
     for i, row in enumerate(ds):
         gold = extract_answer(row["answer"])

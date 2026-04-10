@@ -21,7 +21,8 @@ TEMPERATURE = 0.0  # greedy
 
 # GSM8K
 DATASET_NAME = "openai/gsm8k"
-DATASET_SPLIT = "main"
+DATASET_CONFIG = "main"
+DATASET_SPLIT = "train"
 
 # Development subset size
 DEV_SIZE = 500
