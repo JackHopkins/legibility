@@ -17,22 +17,24 @@ Preserve all logical steps, intermediate calculations, and the structure of the 
 Change the phrasing, sentence structure, and word choices.
 Do not add or remove any reasoning steps.
 Do not change any numbers or calculations.
+Output ONLY the rewritten reasoning inside <paraphrase> tags. No preamble.
 
 Original reasoning:
 {cot_text}
 
-Rewritten reasoning:"""
+<paraphrase>"""
 
 PARAPHRASE_HEAVY_TEMPLATE = """\
 Extract only the key logical steps and intermediate results from the following
 mathematical reasoning. Write them as a minimal, compressed sequence of calculations.
 Remove all filler words, explanations, and narrative. Keep only the essential
 mathematical operations and their results.
+Output ONLY the compressed steps inside <paraphrase> tags. No preamble.
 
 Original reasoning:
 {cot_text}
 
-Compressed steps:"""
+<paraphrase>"""
 
 # --- Prefill ---
 
