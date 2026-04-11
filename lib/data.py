@@ -25,10 +25,7 @@ def load_gsm8k(split: str = DATASET_SPLIT):
 
 
 def extract_answer(answer_text: str) -> int | None:
-    """Extract the numeric answer after #### delimiter in GSM8K format.
-
-    Returns an integer or None if extraction fails.
-    """
+    """Extract the numeric answer after #### delimiter in GSM8K format."""
     match = re.search(r"####\s*(-?\d[\d,]*)", answer_text)
     if match:
         return int(match.group(1).replace(",", ""))
@@ -42,12 +39,10 @@ def extract_predicted_answer(text: str) -> int | None:
     1. 'The answer is: <number>'
     2. Last number in the text
     """
-    # Try explicit pattern first
     match = re.search(r"[Tt]he answer is:?\s*(-?\d[\d,]*)", text)
     if match:
         return int(match.group(1).replace(",", ""))
 
-    # Fall back to last number in text
     numbers = re.findall(r"-?\d[\d,]*", text)
     if numbers:
         return int(numbers[-1].replace(",", ""))
@@ -60,21 +55,14 @@ def build_prefill_string(question: str, full_response: str) -> str:
 
     Includes the full model response (think tags + answer text) up to
     'The answer is: ', so the model's next token should be the number.
-
-    If 'The answer is:' is not found in the response, falls back to
-    appending it after the full response.
     """
-    # Find the last occurrence of "The answer is:" and truncate after it
-    # This positions the model to predict the numeric answer as the next token
     pattern = r"[Tt]he answer is:?\s*"
     matches = list(re.finditer(pattern, full_response))
 
     if matches:
         last_match = matches[-1]
-        # Include everything up to and including "The answer is: "
         truncated = full_response[:last_match.end()]
     else:
-        # Fallback: append "The answer is: " after the full response
         truncated = full_response.rstrip() + "\nThe answer is: "
 
     return (
@@ -86,11 +74,7 @@ def build_prefill_string(question: str, full_response: str) -> str:
 
 
 def build_generation_messages(question: str) -> list[dict]:
-    """Build chat messages for COT generation with Qwen3.
-
-    Uses a system prompt that instructs step-by-step reasoning
-    followed by a clear numeric answer.
-    """
+    """Build chat messages for COT generation with Qwen3."""
     return [
         {
             "role": "system",
