@@ -18,6 +18,17 @@ Original reasoning:
 
 Rewritten reasoning:"""
 
+# --- Medium paraphrase (extension 1: compression sweep) ---
+MEDIUM_PARAPHRASE_PROMPT = """Rewrite the following mathematical reasoning more concisely.
+Keep all intermediate calculations and results, but shorten explanations.
+Remove redundant phrasing while preserving every numerical step.
+Do not change any numbers or calculations.
+
+Original reasoning:
+{cot_text}
+
+Concise reasoning:"""
+
 # --- Heavy paraphrase ---
 HEAVY_PARAPHRASE_PROMPT = """Extract only the key logical steps and intermediate results from the following
 mathematical reasoning. Write them as a minimal, compressed sequence of calculations.
@@ -28,6 +39,51 @@ Original reasoning:
 {cot_text}
 
 Compressed steps:"""
+
+# --- Ultra-heavy paraphrase (extension 1: compression sweep) ---
+ULTRA_HEAVY_PARAPHRASE_PROMPT = """Reduce the following mathematical reasoning to ONLY the chain of
+arithmetic operations and their results. Use the format "X op Y = Z" for each step.
+No words, no explanations, just equations.
+
+Original reasoning:
+{cot_text}
+
+Equations only:"""
+
+# --- Single-sentence paraphrase (extension 1: compression sweep) ---
+SINGLE_SENTENCE_PARAPHRASE_PROMPT = """Summarize the entire mathematical reasoning below into a single sentence
+that captures the key computation path and final result.
+
+Original reasoning:
+{cot_text}
+
+One-sentence summary:"""
+
+# --- Translation prompts (extension 4: bilingual round-trip) ---
+TRANSLATE_TO_CHINESE_PROMPT = """Translate the following mathematical reasoning into Chinese.
+Preserve all numbers, calculations, and logical steps exactly.
+
+English reasoning:
+{cot_text}
+
+Chinese translation:"""
+
+TRANSLATE_TO_ENGLISH_PROMPT = """Translate the following mathematical reasoning from Chinese back into English.
+Preserve all numbers, calculations, and logical steps exactly.
+
+Chinese reasoning:
+{cot_text}
+
+English translation:"""
+
+# --- Compression levels registry (extension 1) ---
+COMPRESSION_LEVELS = {
+    "light": LIGHT_PARAPHRASE_PROMPT,
+    "medium": MEDIUM_PARAPHRASE_PROMPT,
+    "heavy": HEAVY_PARAPHRASE_PROMPT,
+    "ultra_heavy": ULTRA_HEAVY_PARAPHRASE_PROMPT,
+    "single_sentence": SINGLE_SENTENCE_PARAPHRASE_PROMPT,
+}
 
 
 def build_cot_messages(question: str):
@@ -79,9 +135,38 @@ def build_gemma_prefill_prompt(question: str, cot_text: str) -> str:
     )
 
 
+def build_llama_prefill_prompt(question: str, cot_text: str) -> str:
+    """Build a prefill prompt for Llama 3 Instruct."""
+    return (
+        f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n"
+        f"{question}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+        f"{cot_text}\nThe answer is: "
+    )
+
+
+def build_mistral_prefill_prompt(question: str, cot_text: str) -> str:
+    """Build a prefill prompt for Mistral Instruct."""
+    return (
+        f"[INST] {question} [/INST]"
+        f"{cot_text}\nThe answer is: "
+    )
+
+
 def build_prefill_prompt(question: str, cot_text: str, model_name: str) -> str:
     """Build a prefill prompt for the appropriate model."""
-    if "gemma" in model_name.lower():
+    name = model_name.lower()
+    if "gemma" in name:
         return build_gemma_prefill_prompt(question, cot_text)
+    elif "llama" in name:
+        return build_llama_prefill_prompt(question, cot_text)
+    elif "mistral" in name:
+        return build_mistral_prefill_prompt(question, cot_text)
     else:
         return build_qwen_prefill_prompt(question, cot_text)
+
+
+def build_compression_messages(cot_text: str, level: str):
+    """Build chat messages for a given compression level."""
+    template = COMPRESSION_LEVELS[level]
+    prompt = template.format(cot_text=cot_text)
+    return [{"role": "user", "content": prompt}]

@@ -29,6 +29,26 @@ CONDITIONS = {
     "corrupted_numbers":     {"reader": PRIMARY_MODEL,  "cot_transform": "corrupt_numbers"},
 }
 
+# --- Extension models ---
+SCALING_MODELS = [
+    "Qwen/Qwen3-1.7B",
+    "Qwen/Qwen3-4B",
+    "Qwen/Qwen3-8B",
+    "Qwen/Qwen3-14B",
+]
+
+PARAPHRASER_SWEEP_MODELS = [
+    "google/gemma-3-4b-it",
+    "meta-llama/Llama-3.2-3B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+]
+
+CROSS_READER_MODELS = [
+    "google/gemma-3-4b-it",
+    "meta-llama/Llama-3.2-3B-Instruct",
+    "mistralai/Mistral-7B-Instruct-v0.3",
+]
+
 # --- Generation parameters ---
 MAX_COT_TOKENS = 2048
 MAX_ANSWER_TOKENS = 32
