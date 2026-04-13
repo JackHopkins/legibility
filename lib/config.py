@@ -1,46 +1,42 @@
 from pathlib import Path
 
-WORKSPACE = Path("/workspace/10-4-2026")
+WORKSPACE = Path("/workspace/13-4-2026")
 REPO_DIR = WORKSPACE / "legibility"
 CACHE_DIR = WORKSPACE / "cache"
 COT_CACHE = CACHE_DIR / "cots"
 PARAPHRASE_CACHE = CACHE_DIR / "paraphrases"
 PREFILL_CACHE = CACHE_DIR / "prefills"
-INTERVENTION_CACHE = CACHE_DIR / "interventions"
 RESULTS_DIR = WORKSPACE / "results"
 FIGURES_DIR = WORKSPACE / "figures"
 
-MODEL_NAME = "Qwen/Qwen3-4B"
-PARAPHRASER_MODEL = "Qwen/Qwen3-8B"
-CROSS_MODEL_NAME = "Qwen/Qwen3-8B"
+# --- Models ---
+PRIMARY_MODEL = "Qwen/Qwen3-4B"         # COT generator + self-prefill reader
+CROSS_MODEL = "google/gemma-3-4b-it"     # Cross-model reader (different family)
+PARAPHRASER_MODEL = "Qwen/Qwen3-8B"     # Neutral paraphraser
 
-# Model architecture (for intervention experiments)
-NUM_LAYERS = 36
-HIDDEN_SIZE = 2560
-ZERO_AT_LAYERS = list(range(NUM_LAYERS))
+# --- Conditions ---
+# Which model reads the COT for each condition
+CONDITIONS = {
+    "no_cot":                {"reader": PRIMARY_MODEL,  "cot_transform": None},
+    "normal":                {"reader": PRIMARY_MODEL,  "cot_transform": None},
+    "self_prefill":          {"reader": PRIMARY_MODEL,  "cot_transform": "verbatim"},
+    "cross_prefill":         {"reader": CROSS_MODEL,    "cot_transform": "verbatim"},
+    "paraphrase_self":       {"reader": PRIMARY_MODEL,  "cot_transform": "paraphrase_light"},
+    "paraphrase_cross":      {"reader": CROSS_MODEL,    "cot_transform": "paraphrase_light"},
+    "heavy_paraphrase_self": {"reader": PRIMARY_MODEL,  "cot_transform": "paraphrase_heavy"},
+    "heavy_paraphrase_cross":{"reader": CROSS_MODEL,    "cot_transform": "paraphrase_heavy"},
+    "shuffled_steps":        {"reader": PRIMARY_MODEL,  "cot_transform": "shuffle"},
+    "corrupted_numbers":     {"reader": PRIMARY_MODEL,  "cot_transform": "corrupt_numbers"},
+}
 
-# Paraphrase experiment conditions
-CONDITIONS = [
-    "no_cot",
-    "normal",
-    "self_prefill",
-    "paraphrase_light",
-    "paraphrase_heavy",
-    "shuffled_steps",
-    "corrupted_numbers",
-]
-
-# Intervention experiment conditions
-INTERVENTION_CONDITIONS = ["self_prefill"] + [f"zeroed_layer_{k}" for k in ZERO_AT_LAYERS]
-
+# --- Generation parameters ---
 MAX_COT_TOKENS = 2048
 MAX_ANSWER_TOKENS = 32
-TEMPERATURE = 0.0  # greedy throughout
+TEMPERATURE = 0.0  # Greedy throughout
 
-# GSM8K
+# --- Dataset ---
 DATASET_NAME = "openai/gsm8k"
-DATASET_CONFIG = "main"
 DATASET_SPLIT = "test"
 
-# Subset size for experiments
-SUBSET_SIZE = 256
+# --- Batch processing ---
+CHUNK_SIZE = 64

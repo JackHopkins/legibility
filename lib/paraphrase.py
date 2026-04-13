@@ -1,46 +1,68 @@
-"""Paraphrasing and COT manipulation utilities."""
+"""Paraphrasing logic using vLLM."""
 
-import re
-import random
+import json
+from pathlib import Path
+from tqdm import tqdm
+
+from lib.config import PARAPHRASE_CACHE, CHUNK_SIZE, MAX_COT_TOKENS, TEMPERATURE
+from lib.prompts import build_paraphrase_messages
 
 
-def shuffle_steps(cot_text: str, seed: int) -> str:
-    """Randomly shuffle the steps of a COT.
+def get_done_ids(condition: str) -> set:
+    """Get problem IDs already cached for a given paraphrase condition."""
+    done = set()
+    for p in PARAPHRASE_CACHE.glob(f"{condition}_*.json"):
+        try:
+            pid = int(p.stem.split("_", 1)[1])
+            done.add(pid)
+        except (ValueError, IndexError):
+            pass
+    return done
 
-    Splits on newlines (filtering blanks), shuffles with a fixed seed,
-    and rejoins.
+
+def paraphrase_cots(llm, tokenizer, cots: list, condition: str, heavy: bool = False):
+    """Paraphrase a list of COTs using the loaded vLLM model.
+
+    Args:
+        llm: vLLM LLM instance (paraphraser model).
+        tokenizer: The tokenizer for chat template formatting.
+        cots: List of dicts with 'problem_id' and 'cot_text'.
+        condition: Cache condition name (e.g. 'paraphrase_light').
+        heavy: If True, use heavy paraphrase prompt.
     """
-    lines = [line.strip() for line in cot_text.split("\n") if line.strip()]
-    if len(lines) <= 1:
-        # Try splitting on sentence boundaries if no newlines
-        lines = re.split(r"(?<=[.!?])\s+", cot_text.strip())
+    from vllm import SamplingParams
 
-    rng = random.Random(seed)
-    rng.shuffle(lines)
-    return "\n".join(lines)
+    PARAPHRASE_CACHE.mkdir(parents=True, exist_ok=True)
+    done_ids = get_done_ids(condition)
+    todo = [c for c in cots if c["problem_id"] not in done_ids]
+    print(f"[{condition}] Resuming: {len(done_ids)} done, {len(todo)} remaining")
 
+    if not todo:
+        return
 
-def corrupt_numbers(cot_text: str, final_answer: int, seed: int) -> str:
-    """Replace all intermediate numbers with random values.
+    sampling = SamplingParams(temperature=TEMPERATURE, max_tokens=MAX_COT_TOKENS)
 
-    Preserves the final answer if it appears. Numbers that match the
-    final answer are left intact to avoid corrupting the target.
-    """
-    rng = random.Random(seed)
+    for i in tqdm(range(0, len(todo), CHUNK_SIZE), desc=condition):
+        chunk = todo[i:i + CHUNK_SIZE]
+        messages_batch = [build_paraphrase_messages(c["cot_text"], heavy=heavy) for c in chunk]
 
-    def replace_number(match):
-        num_str = match.group(0)
-        num_val = int(num_str.replace(",", ""))
-        # Don't corrupt the final answer
-        if num_val == final_answer:
-            return num_str
-        # Generate a random replacement in a similar magnitude
-        magnitude = max(1, abs(num_val))
-        lower = max(1, magnitude // 10)
-        upper = magnitude * 10
-        replacement = rng.randint(lower, upper)
-        if num_val < 0:
-            replacement = -replacement
-        return str(replacement)
+        # Apply chat template
+        prompts = []
+        for msgs in messages_batch:
+            prompt = tokenizer.apply_chat_template(
+                msgs, tokenize=False, add_generation_prompt=True
+            )
+            prompts.append(prompt)
 
-    return re.sub(r"-?\d[\d,]*", replace_number, cot_text)
+        outputs = llm.generate(prompts, sampling)
+
+        for c, output in zip(chunk, outputs):
+            paraphrased = output.outputs[0].text.strip()
+            result = {
+                "problem_id": c["problem_id"],
+                "condition": condition,
+                "original_cot": c["cot_text"],
+                "paraphrased_cot": paraphrased,
+            }
+            cache_path = PARAPHRASE_CACHE / f"{condition}_{c['problem_id']}.json"
+            cache_path.write_text(json.dumps(result))
