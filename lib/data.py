@@ -60,24 +60,23 @@ def extract_predicted_answer(text: str) -> int | None:
 
 # --- Extension 7: Task diversity loaders ---
 
-def load_math(split: str = "test", max_examples: int | None = None):
-    """Load MATH dataset (hendrycks/competition_mathematics).
+def load_svamp(split: str = "test", max_examples: int | None = None):
+    """Load SVAMP dataset (simple arithmetic word problems).
 
-    Returns list of dicts with: problem_id, question, gold_answer, answer_text, subject, level.
+    Returns list of dicts with: problem_id, question, gold_answer, answer_text, task.
     """
-    ds = load_dataset("hendrycks/competition_mathematics", split=split)
+    ds = load_dataset("ChilleD/SVAMP", split=split)
     examples = []
     for i, row in enumerate(ds):
         if max_examples and i >= max_examples:
             break
+        gold = int(float(row["Answer"]))
         examples.append({
             "problem_id": i,
-            "question": row["problem"],
-            "answer_text": row["solution"],
-            "gold_answer": row["answer"].strip(),
-            "subject": row.get("type", "unknown"),
-            "level": row.get("level", "unknown"),
-            "task": "math",
+            "question": row["question_concat"],
+            "answer_text": row["Equation"],
+            "gold_answer": gold,
+            "task": "svamp",
         })
     return examples
 
