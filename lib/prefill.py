@@ -27,6 +27,7 @@ def run_prefill_condition(
     model_name: str,
     examples: list,
     cot_lookup: dict,
+    tokenizer=None,
 ):
     """Run a single prefill condition over all examples.
 
@@ -36,6 +37,7 @@ def run_prefill_condition(
         model_name: Model name string (used to select chat template).
         examples: List of dicts with 'problem_id', 'question', 'gold_answer'.
         cot_lookup: Dict mapping problem_id -> COT text to prefill with.
+        tokenizer: HuggingFace tokenizer for building prompts via chat template.
     """
     from vllm import SamplingParams
 
@@ -58,7 +60,7 @@ def run_prefill_condition(
         prompts = []
         for ex in chunk:
             cot_text = cot_lookup[ex["problem_id"]]
-            prompt = build_prefill_prompt(ex["question"], cot_text, model_name)
+            prompt = build_prefill_prompt(ex["question"], cot_text, model_name, tokenizer=tokenizer)
             prompts.append(prompt)
 
         outputs = llm.generate(prompts, sampling)

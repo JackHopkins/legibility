@@ -111,59 +111,76 @@ def build_paraphrase_messages(cot_text: str, heavy: bool = False):
     ]
 
 
-def build_qwen_prefill_prompt(question: str, cot_text: str) -> str:
-    """Build a prefill prompt for Qwen3 (manually formatted).
+def build_prefill_messages(question: str, cot_text: str, model_name: str) -> list:
+    """Build chat messages for prefill, with COT as partial assistant response.
 
-    Returns a string where the assistant has already 'written' the COT
-    inside <think> tags (matching Qwen3's native thinking format),
-    and the model just needs to produce the final answer number.
+    The assistant message contains the COT wrapped in <think> tags (for Qwen3)
+    or plain text (for other models), ending with 'The answer is: ' so the model
+    just needs to produce the number.
+
+    Use with tokenizer.apply_chat_template(..., continue_final_message=True)
+    to get the actual prompt string.
     """
-    return (
-        f"<|im_start|>system\n{COT_SYSTEM}<|im_end|>\n"
-        f"<|im_start|>user\n{question}<|im_end|>\n"
-        f"<|im_start|>assistant\n<think>\n{cot_text}\n</think>\nThe answer is: "
-    )
+    name = model_name.lower()
+    if "qwen" in name:
+        assistant_content = f"<think>\n{cot_text}\n</think>\nThe answer is: "
+        return [
+            {"role": "system", "content": COT_SYSTEM},
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": assistant_content},
+        ]
+    else:
+        assistant_content = f"{cot_text}\nThe answer is: "
+        return [
+            {"role": "user", "content": question},
+            {"role": "assistant", "content": assistant_content},
+        ]
 
 
-def build_gemma_prefill_prompt(question: str, cot_text: str) -> str:
-    """Build a prefill prompt for Gemma 3 (manually formatted).
+def build_prefill_prompt(question: str, cot_text: str, model_name: str, tokenizer=None) -> str:
+    """Build a prefill prompt for the appropriate model.
 
-    Uses Gemma's chat template format.
+    If tokenizer is provided, uses apply_chat_template for correct formatting.
+    Otherwise falls back to manual template construction.
     """
-    return (
-        f"<start_of_turn>user\n{question}<end_of_turn>\n"
-        f"<start_of_turn>model\n{cot_text}\nThe answer is: "
-    )
+    if tokenizer is not None:
+        messages = build_prefill_messages(question, cot_text, model_name)
+        try:
+            return tokenizer.apply_chat_template(
+                messages, tokenize=False,
+                continue_final_message=True,
+            )
+        except TypeError:
+            # Older tokenizers may not support continue_final_message
+            return tokenizer.apply_chat_template(
+                messages, tokenize=False,
+                add_generation_prompt=False,
+            )
 
-
-def build_llama_prefill_prompt(question: str, cot_text: str) -> str:
-    """Build a prefill prompt for Llama 3 Instruct."""
-    return (
-        f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n"
-        f"{question}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-        f"{cot_text}\nThe answer is: "
-    )
-
-
-def build_mistral_prefill_prompt(question: str, cot_text: str) -> str:
-    """Build a prefill prompt for Mistral Instruct."""
-    return (
-        f"[INST] {question} [/INST]"
-        f"{cot_text}\nThe answer is: "
-    )
-
-
-def build_prefill_prompt(question: str, cot_text: str, model_name: str) -> str:
-    """Build a prefill prompt for the appropriate model."""
+    # Manual fallback (less reliable — prefer passing tokenizer)
     name = model_name.lower()
     if "gemma" in name:
-        return build_gemma_prefill_prompt(question, cot_text)
+        return (
+            f"<start_of_turn>user\n{question}<end_of_turn>\n"
+            f"<start_of_turn>model\n{cot_text}\nThe answer is: "
+        )
     elif "llama" in name:
-        return build_llama_prefill_prompt(question, cot_text)
+        return (
+            f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n"
+            f"{question}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+            f"{cot_text}\nThe answer is: "
+        )
     elif "mistral" in name:
-        return build_mistral_prefill_prompt(question, cot_text)
+        return (
+            f"[INST] {question} [/INST]"
+            f"{cot_text}\nThe answer is: "
+        )
     else:
-        return build_qwen_prefill_prompt(question, cot_text)
+        return (
+            f"<|im_start|>system\n{COT_SYSTEM}<|im_end|>\n"
+            f"<|im_start|>user\n{question}<|im_end|>\n"
+            f"<|im_start|>assistant\n<think>\n{cot_text}\n</think>\nThe answer is: "
+        )
 
 
 def build_compression_messages(cot_text: str, level: str):
