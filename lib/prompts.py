@@ -114,13 +114,14 @@ def build_paraphrase_messages(cot_text: str, heavy: bool = False):
 def build_qwen_prefill_prompt(question: str, cot_text: str) -> str:
     """Build a prefill prompt for Qwen3 (manually formatted).
 
-    Returns a string where the assistant has already 'written' the COT,
+    Returns a string where the assistant has already 'written' the COT
+    inside <think> tags (matching Qwen3's native thinking format),
     and the model just needs to produce the final answer number.
     """
     return (
         f"<|im_start|>system\n{COT_SYSTEM}<|im_end|>\n"
         f"<|im_start|>user\n{question}<|im_end|>\n"
-        f"<|im_start|>assistant\n{cot_text}\nThe answer is: "
+        f"<|im_start|>assistant\n<think>\n{cot_text}\n</think>\nThe answer is: "
     )
 
 
