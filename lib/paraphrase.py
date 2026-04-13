@@ -1,6 +1,7 @@
 """Paraphrasing logic using vLLM."""
 
 import json
+import re
 from pathlib import Path
 from tqdm import tqdm
 
@@ -18,6 +19,42 @@ def get_done_ids(condition: str) -> set:
         except (ValueError, IndexError):
             pass
     return done
+
+
+def strip_think_tags(text: str) -> str:
+    """Remove <think>...</think> blocks from paraphraser output.
+
+    Qwen3 models emit thinking blocks even when not requested.
+    The content after </think> is the actual paraphrase.
+    """
+    # Remove everything inside <think>...</think>
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    # If stripping removed everything, fall back to original minus the tags
+    if not cleaned:
+        cleaned = re.sub(r"</?think>", "", text).strip()
+    return cleaned
+
+
+def strip_answer_suffix(text: str) -> str:
+    """Remove trailing 'The answer is: X' from paraphrased text.
+
+    The paraphraser should compress reasoning, not state the answer.
+    Leaving the answer in the text makes the prefill trivially correct.
+    """
+    # Remove trailing "The answer is: <number>" and anything after
+    text = re.sub(r"\s*[Tt]he answer is:?\s*-?\d[\d,]*\.?\d*\s*\.?\s*$", "", text).strip()
+    # Also remove trailing "Answer: <number>"
+    text = re.sub(r"\s*\*?\*?[Aa]nswer:?\*?\*?\s*-?\d[\d,]*\.?\d*\s*\.?\s*$", "", text).strip()
+    # Remove trailing "#### <number>"
+    text = re.sub(r"\s*####\s*-?\d[\d,]*\s*$", "", text).strip()
+    return text
+
+
+def clean_paraphrase(text: str) -> str:
+    """Apply all cleaning steps to paraphraser output."""
+    text = strip_think_tags(text)
+    text = strip_answer_suffix(text)
+    return text
 
 
 def paraphrase_cots(llm, tokenizer, cots: list, condition: str, heavy: bool = False):
@@ -46,18 +83,26 @@ def paraphrase_cots(llm, tokenizer, cots: list, condition: str, heavy: bool = Fa
         chunk = todo[i:i + CHUNK_SIZE]
         messages_batch = [build_paraphrase_messages(c["cot_text"], heavy=heavy) for c in chunk]
 
-        # Apply chat template
+        # Apply chat template — explicitly disable thinking mode
         prompts = []
         for msgs in messages_batch:
-            prompt = tokenizer.apply_chat_template(
-                msgs, tokenize=False, add_generation_prompt=True
-            )
+            try:
+                prompt = tokenizer.apply_chat_template(
+                    msgs, tokenize=False, add_generation_prompt=True,
+                    enable_thinking=False
+                )
+            except TypeError:
+                # Tokenizer doesn't support enable_thinking kwarg
+                prompt = tokenizer.apply_chat_template(
+                    msgs, tokenize=False, add_generation_prompt=True
+                )
             prompts.append(prompt)
 
         outputs = llm.generate(prompts, sampling)
 
         for c, output in zip(chunk, outputs):
-            paraphrased = output.outputs[0].text.strip()
+            raw = output.outputs[0].text.strip()
+            paraphrased = clean_paraphrase(raw)
             result = {
                 "problem_id": c["problem_id"],
                 "condition": condition,
