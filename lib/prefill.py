@@ -14,7 +14,7 @@ def get_done_ids(condition: str) -> set:
     done = set()
     for p in PREFILL_CACHE.glob(f"{condition}_*.json"):
         try:
-            pid = int(p.stem.split("_", 1)[1])
+            pid = int(p.stem.rsplit("_", 1)[-1])
             done.add(pid)
         except (ValueError, IndexError):
             pass
